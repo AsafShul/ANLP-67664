@@ -26,7 +26,7 @@ if __name__ == '__main__':
     # load data:
     res = {}
 
-    for seed in run_args.seeds:
+    for seed in run_args['seeds']:
         set_seed(seed)
         for model_name in MODELS:
             utils.init_wandb(LOG_WITH_WANDB, config=training_args, name=utils.get_run_name(run_args, model_name, seed))
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     best_acc = -np.inf
     for model_name in MODELS:
         model_acc = []
-        for seed in run_args.seeds:
+        for seed in run_args['seeds']:
             acc = res[f'{model_name}_{seed}']['eval']['eval_accuracy']
             if acc > best_acc:
                 best_acc = acc

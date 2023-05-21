@@ -4,23 +4,11 @@ import sys
 
 import wandb
 import numpy as np
-from datasets import load_dataset
 from evaluate import load
-
-from dataclasses import dataclass, field
-from transformers import TrainingArguments
-from transformers.hf_argparser import HfArgumentParser
+from datasets import load_dataset
 
 from transformers import EvalPrediction
-
-
-@dataclass
-class RunArguments:
-    num_seeds: int = field(metadata={'help': 'number of seeds to be used for each model'}, default=1)
-    num_train: int = field(metadata={'help': 'number of samples to be used during training'}, default=-1)
-    num_val: int = field(metadata={'help': 'number of samples to be used during validation'}, default=-1)
-    num_test: int = field(metadata={'help': 'number of samples for which the model will predict a sentiment'},
-                          default=-1)
+from transformers import TrainingArguments
 
 
 def get_config():
@@ -28,12 +16,9 @@ def get_config():
     Get the config of the experiment
     :return: seeds, num_train, num_val, num_test
     """
-    sys.argv.append("--output_dir=./results")
-    parser = HfArgumentParser((RunArguments, TrainingArguments))
-    run_args, training_args = parser.parse_args_into_dataclasses()
-    run_args.seeds = np.arange(run_args.num_seeds)
-    training_args.evaluation_strategy = "epoch"
-    training_args.save_strategy = "epoch"
+    run_args = dict(zip(['num_seeds', 'num_train', 'num_val', 'num_test'], np.array(sys.argv[1:5], dtype=int)))
+    run_args['seeds'] = np.arange(run_args['num_seeds'])
+    training_args = TrainingArguments(output_dir="./results", evaluation_strategy="epoch", save_strategy="epoch")
 
     return run_args, training_args
 
@@ -46,7 +31,7 @@ def get_run_name(run_args, model_name, seed):
     :param seed: the seed
     :return: the name of the run
     """
-    return f'{model_name}_seed-{seed}trainSamples-{run_args.num_train}_valSamples-{run_args.num_val}_testSamples-{run_args.num_test}'
+    return f'{model_name}_seed-{seed}trainSamples-{run_args["num_train"]}_valSamples-{run_args["num_val"]}_testSamples-{run_args["num_test"]}'
 
 
 def init_dirs():
@@ -91,10 +76,10 @@ def get_datasets(run_args, seed, tokenizer):
     train_dataset = tokenized_datasets['train']
     eval_dataset = tokenized_datasets['validation']
 
-    if run_args.num_train != -1:
-        train_dataset = tokenized_datasets['train'].shuffle(seed=seed).select(range(run_args.num_train))
-    if run_args.num_val != -1:
-        eval_dataset = tokenized_datasets['validation'].shuffle(seed=seed).select(range(run_args.num_val))
+    if run_args["num_train"] != -1:
+        train_dataset = tokenized_datasets['train'].shuffle(seed=seed).select(range(run_args["num_train"]))
+    if run_args["num_val"] != -1:
+        eval_dataset = tokenized_datasets['validation'].shuffle(seed=seed).select(range(run_args["num_val"]))
 
     def preprocess_function(examples):
         # Tokenize the texts
@@ -114,8 +99,8 @@ def get_test_dataset(run_args, seed, tokenizer):
 
     test_dataset = tokenized_datasets['test']
 
-    if run_args.num_test != -1:
-        test_dataset = tokenized_datasets['test'].shuffle(seed=seed).select(range(run_args.num_test))
+    if run_args["num_test"] != -1:
+        test_dataset = tokenized_datasets['test'].shuffle(seed=seed).select(range(run_args["num_test"]))
 
     return test_dataset
 
@@ -131,5 +116,5 @@ def init_wandb(LOG_WITH_WANDB, config='default', name='default'):
     if not LOG_WITH_WANDB:
         return
 
-    wandb.login(key=os.environ.get('WANDB_API_KEY'), relogin=True)
+    wandb.login()
     wandb.init(project="ANLP-ex1", config=config, name=name)
